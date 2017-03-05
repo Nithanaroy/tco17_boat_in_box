@@ -4,25 +4,202 @@
 <head>
     <meta charset="utf-8">
     <title>Boat in a box</title>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u"
+        crossorigin="anonymous" />
+    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN"
+        crossorigin="anonymous" />
     <style>
-
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        
+        html,
+        body,
+        #wrapper {
+            height: 100%;
+        }
+        
+        #wrapper {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        button {
+            background: #595A53;
+            color: #C8C8C7;
+            border: none;
+        }
+        
+        .container-fluid {
+            padding-left: 0;
+            padding-right: 0;
+        }
+        
+        #top-header {
+            background: #373833;
+            padding: 1rem 4rem;
+        }
+        
+        #left-nav {
+            position: absolute;
+            top: 7rem;
+            left: 4rem;
+        }
+        
+        #left-nav ul {
+            padding: 0;
+            box-shadow: 0 0 10px #000;
+        }
+        
+        #left-nav li {
+            list-style: none;
+            background: #202123;
+            width: 5rem;
+            height: 5rem;
+            color: #E1D1A6;
+            text-align: center;
+            line-height: 5rem;
+            border-bottom: 1px solid #2F3437;
+        }
+        
+        #left-nav li:last-child {
+            border-bottom: none;
+        }
+        
+        #left-nav li:hover {
+            background: #17181A;
+            cursor: pointer;
+        }
+        
+        #ship-count {
+            position: absolute;
+            bottom: 10rem;
+            left: 4rem;
+            background: #202123;
+            padding: 1rem 0.5rem;
+            box-shadow: 0 0 10px #000;
+            border-radius: 2px;
+        }
+        
+        #ship-count h2 {
+            color: #FFF;
+            margin-bottom: 0;
+            margin-top: 0;
+        }
+        
+        #map-container {
+            background: #131313;
+            flex-grow: 1;
+        }
+        
+        #timeline table {
+            width: 100%;
+        }
+        
+        #timeline table tr:first-child {
+            text-align: center;
+            background: #202123;
+            font-size: 0.5rem;
+            color: #475256;
+            border-top: 1px solid #2F3436;
+            border-bottom: 1px solid #2F3436;
+        }
+        
+        #timeline table tr:first-child td {
+            padding: 0.75rem;
+        }
+        
+        #timeline table tr:last-child {
+            background: #17181A;
+        }
+        
+        #timeline table tr:last-child td {
+            height: 5rem;
+        }
+        
+        #timeline table tr:last-child td div {
+            border-right: 1px solid #1D1E20;
+            height: 100%;
+            padding: 0;
+        }
     </style>
 </head>
 
 <body>
+    <div id="wrapper" class="container-fluid"></div>
     <script id="app-template" type="text/stache">
+        <header id="top-header">
+            <button class="btn-sm" style="margin-right: 1rem;">OPEN</button>
+            <button class="btn-sm">SAVE</button>
+        </header>
+        <div id="left-nav">
+            <ul>
+                <li title="Add Ship"><i class="fa fa-ship" aria-hidden="true"></i></li>
+                <li title="Add AIS"><i class="fa fa-envelope" aria-hidden="true"></i></li>
+                <li title="Remove this tool"><i class="fa fa-minus-square" aria-hidden="true"></i></li>
+            </ul>
+        </div>
+        <div id="ship-count">
+            <table>
+                <tr>
+                    <td rowspan="2" style="color: #E1D1A6; font-size: 2rem;">
+                        <i class="fa fa-ship" aria-hidden="true" style="margin-right: 1rem;">
+                        </td>
+                    <td><h2>721</h2></td>
+                </tr>
+                <tr>
+                    <td style="color: #383F42; font-size: 0.5rem;">Ships Total</td>
+                </tr>
+            </table>
+        </div>
+
+        <div id="map-container"></div>
+        <div id="timeline">
+            <table>
+                <tr>
+                    <td style="max-width: 165px; text-align: left; color: #AEAEAF; font-size: 1.3rem;">TIMELINE VIEW</td>
+                    {{#times}}
+                    <td>{{.}}</td>
+                    {{/times}}
+                </tr>
+                <tr>
+                    <td></td>
+                    {{#times}}
+                    <td>
+                        <div class="col-sm-6"></div>
+                    </td>
+                    {{/times}}
+                </tr>
+            </table>
+        </div>
+        
     </script>
     <script src="https://unpkg.com/can/dist/global/can.all.js"></script>
-    <script>
-        var AppViewModel = can.DefineMap.extend({
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
+        crossorigin="anonymous"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
+            crossorigin="anonymous"></script>
+            <script>
+                var AppViewModel = can.DefineMap.extend({
+                    times: {
+                        value: function() {
+                            times = [];
+                            for(let i = 0; i < 10; i++) {
+                                times.push(`0${i}:00`);
+                            }
+                            for(let i = 10; i < 25; i++) {
+                                times.push(`${i}:00`);
+                            }
+                            return times;
+                        }
+                    }
+                });
 
-        });
+                var template = can.stache.from("app-template");
+                var frag = template(new AppViewModel());
 
-        var template = can.stache.from("app-template");
-        var frag = template(new AppViewModel());
-
-        document.body.appendChild(frag);
-    </script>
+                document.getElementById("wrapper").appendChild(frag);
+            </script>
 </body>
 
 </html>
