@@ -8,6 +8,7 @@
         crossorigin="anonymous" />
     <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN"
         crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.3/dist/leaflet.css" />
     <style>
         body {
             font-family: Arial, Helvetica, sans-serif;
@@ -44,6 +45,8 @@
             position: absolute;
             top: 7rem;
             left: 4rem;
+            z-index: 401;
+            /* 1 more than leaflet map */
         }
         
         #left-nav ul {
@@ -79,6 +82,8 @@
             padding: 1rem 0.5rem;
             box-shadow: 0 0 10px #000;
             border-radius: 2px;
+            z-index: 401;
+            /* 1 more than leaflet map */
         }
         
         #ship-count h2 {
@@ -121,6 +126,15 @@
             border-right: 1px solid #1D1E20;
             height: 100%;
             padding: 0;
+        }
+        
+        .leaflet-tile {
+            border: solid #353737 1px;
+        }
+        
+        .leaflet-tile td {
+            border-right: solid #353737 1px;
+            border-bottom: solid #353737 1px;
         }
     </style>
 </head>
@@ -175,31 +189,59 @@
         
     </script>
     <script src="https://unpkg.com/can/dist/global/can.all.js"></script>
-    <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
-        crossorigin="anonymous"></script>
-        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa"
-            crossorigin="anonymous"></script>
-            <script>
-                var AppViewModel = can.DefineMap.extend({
-                    times: {
-                        value: function() {
-                            times = [];
-                            for(let i = 0; i < 10; i++) {
-                                times.push(`0${i}:00`);
-                            }
-                            for(let i = 10; i < 25; i++) {
-                                times.push(`${i}:00`);
-                            }
-                            return times;
-                        }
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/leaflet@1.0.3/dist/leaflet.js"></script>
+    
+    <script>
+        var AppViewModel = can.DefineMap.extend({
+            times: {
+                value: function() {
+                    times = [];
+                    for(let i = 0; i < 10; i++) {
+                        times.push(`0${i}:00`);
                     }
-                });
+                    for(let i = 10; i < 25; i++) {
+                        times.push(`${i}:00`);
+                    }
+                    return times;
+                }
+            }
+        });
 
-                var template = can.stache.from("app-template");
-                var frag = template(new AppViewModel());
+        var template = can.stache.from("app-template");
+        var frag = template(new AppViewModel());
 
-                document.getElementById("wrapper").appendChild(frag);
-            </script>
+        document.getElementById("wrapper").appendChild(frag);
+
+        var mymap = L.map('map-container', {zoomControl: false}).setView([17.937107, -76.221486], 6);
+        L.tileLayer('https://api.mapbox.com/styles/v1/mapbox/dark-v9/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1Ijoibml0aGFuYXJveSIsImEiOiJVTlQ0bUtJIn0.xHgUVf3z6KU1IociPuP-5g', {
+            attribution: '',
+            maxZoom: 18,
+            
+        }).addTo(mymap);
+
+
+
+
+
+        // const mapContainer = document.getElementById("map-container");
+        // $(".leaflet-tile").each(function () {
+        //     let style = `style='position: absolute; top: 0; left: 0; width: ${$(this).width()}; height: ${$(this).height()}; transform: translate3d(${$(this).position().left}px, ${$(this).position().top}px, 0px);'`;
+        //     let html = `<table ${style}>`;
+        //     for( let row = 0; row < 10; row++) {
+        //         html += "<tr>";
+        //         for (let cell = 0; cell < 10; cell++) {
+        //             html += "<td></td>";
+        //         }
+        //         html += "</tr>";
+        //     }
+        //     html += "</table>"
+        //     mapContainer.innerHTML += html;
+        // });
+
+        console.log('Map attribution: Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>')
+    </script>
 </body>
 
 </html>
