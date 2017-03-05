@@ -278,7 +278,7 @@
         <div id="ship-info" style="top: {{shipInfoPos.top}}px; left: {{shipInfoPos.left}}px;">
             <div class="panel">
                 <div class="panel-heading">
-                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <button type="button" class="close" aria-label="Close" ($click)="hideShipInfo()"><span aria-hidden="true">&times;</span></button>
                     <h3 class="panel-title">SHIP INFORMATION</h3>
                 </div>
                 <div class="panel-body">
@@ -311,12 +311,11 @@
                 </div>
                 <div class="panel-footer">
                     <button class="btn-sm btn-success">SAVE</button>
-                    <button class="btn-sm btn-success">WAYPOINT</button>
+                    <button class="btn-sm btn-success" ($click)="addWayPoint()">WAYPOINT</button>
                     <button class="btn-sm btn-success">AIS MESSAGE</button>
                 </div>
             </div>
         </div>
-        <p>{{shipInfoPos.top}} {{shipInfoPos.left}}</p>
     </script>
     <script src="https://unpkg.com/can/dist/global/can.all.js"></script>
     <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
@@ -352,11 +351,36 @@
                             self.onMapClick.call(self, event);
                         });
                     },
-                    onMapClick: function (event) {
-                        L.marker(event.latlng).addTo(mymap);
+                    handleAddingShip: function (event) {
+                        this.leftNavSelectedIndex = 0;
                         this.shipCueEnabled = false;
+                        L.marker(event.latlng).addTo(mymap);
                         this.shipInfoPos.left = event.originalEvent.clientX;
                         this.shipInfoPos.top = event.originalEvent.clientY;
+                    },
+                    handleAddingEndpoint: function (event) {
+                        const self = this;
+                        L.marker(event.latlng).on("click", function () {
+                            self.endPointClicked.call(self, event);
+                        }).addTo(mymap);
+                        this.action = "waypoint";
+                        console.log("end point added");
+                    },
+                    handleAddingWaypoint: function (event) {
+                        L.marker(event.latlng).addTo(mymap);
+                        console.log("way point added");
+                    },
+                    endPointClicked: function (event) {
+                        this.action = ""; // complete way point
+                    },
+                    onMapClick: function (event) {
+                        if (this.leftNavSelectedIndex === 1) {
+                            this.handleAddingShip(event);
+                        } else if (this.action === "waypoint") {
+                            this.handleAddingWaypoint(event);
+                        } else if (this.action === "endpoint") {
+                            this.handleAddingEndpoint(event);
+                        }
                     },
                     times: {
                         value: function () {
@@ -382,9 +406,21 @@
                             left: -999
                         }
                     },
+                    action: {
+                        value: ""
+                    }, // endpoint, waypoint
+                    hideShipInfo: function () {
+                        this.shipInfoPos = {
+                            top: -999,
+                            left: -999
+                        };
+                    },
                     addShip: function addShip() {
                         this.leftNavSelectedIndex = 1;
                         this.shipCueEnabled = true;
+                    },
+                    addWayPoint: function () {
+                        this.action = "endpoint";
                     }
                 });
 
@@ -395,6 +431,18 @@
                     "events": {
                         inserted: function componentInserted() {
                             this.viewModel.componentInserted();
+                        },
+                        "{viewModel} shipCueEnabled": function (viewModel, event, shipCueVisible, oldVal) {
+                            if (shipCueVisible) {
+                                $("#map-container").mousemove(function (event) {
+                                    shipVisualCue.css({
+                                        "left": event.clientX,
+                                        "top": event.clientY
+                                    });
+                                });
+                            } else {
+                                $("#map-container").unbind("mousemove");
+                            }
                         }
                     }
                 });
@@ -422,12 +470,6 @@
                 document.getElementById("wrapper").appendChild(frag);
 
                 const shipVisualCue = $("#shipVisualCue");
-                $("#map-container").mousemove(function (event) {
-                    shipVisualCue.css({
-                        "left": event.clientX,
-                        "top": event.clientY
-                    });
-                });
 
                 console.log(
                     'Map attribution: Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>'
