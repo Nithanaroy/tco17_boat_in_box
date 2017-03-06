@@ -23,6 +23,20 @@
         
         #wrapper {}
         
+        #alert-container {
+            position: absolute;
+            top: 1rem;
+            text-align: center;
+            width: 100%;
+            /* highest of all */
+            z-index: 405;
+        }
+        
+        #alert-container .alert {
+            display: inline-block;
+            margin-bottom: 0;
+        }
+        
         button {
             background: #595A53;
             color: #C8C8C7;
@@ -220,7 +234,21 @@
     <script id="app-template" type="text/stache">
         <bb-home-page class="full-screen-page"></bb-home-page>
     </script>
+    <script id="alert-template" type="text/stache">
+        {{#if showAlert}}
+        <div id="alert-container">
+            <div class="alert alert-info" role="alert">
+                <!--<button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>-->
+                <p>{{alertMsg}}</p>
+            </div>
+        </div>
+        {{/if}}
+    </script>
     <script id="home-template" type="text/stache">
+        <bb-alert {alert-msg}="alertMsg"></bb-alert>
+        <!-- Ideally should be in app template level -->
         <header id="top-header">
             <button class="btn-sm" style="margin-right: 1rem;">OPEN</button>
             <button class="btn-sm">SAVE</button>
@@ -310,7 +338,7 @@
                     <div class="clearfix"></div>
                 </div>
                 <div class="panel-footer">
-                    <button class="btn-sm btn-success">SAVE</button>
+                    <button class="btn-sm btn-success" ($click)="saveShip()">SAVE</button>
                     <button class="btn-sm btn-success" ($click)="addWayPoint()">WAYPOINT</button>
                     <button class="btn-sm btn-success">AIS MESSAGE</button>
                 </div>
@@ -325,7 +353,45 @@
             <script src="https://unpkg.com/leaflet@1.0.3/dist/leaflet.js"></script>
             <script>
                 let mymap = null; // global reference to leaflet map
-                let AppViewModel = can.DefineMap;
+
+                /* Fixtures */
+                let shipsStore = can.fixture.store([]);
+                can.fixture("/api/ship", shipsStore);
+                can.fixture.delay = 1000;
+
+                /* Models */
+                let WayPointModel = can.DefineMap.extend({
+                    lat: "number",
+                    lng: "number"
+                });
+                let ShipModel = can.DefineMap.extend({
+                    id: "number",
+                    name: "string",
+                    course: "string",
+                    speed: "number",
+                    waypoints: can.DefineList.extend({
+                        "Map": WayPointModel
+                    })
+                });
+                ShipModel.List = can.DefineList.extend({
+                    "Map": ShipModel
+                });
+                can.connect.baseMap({
+                    "idProp": "id",
+                    "Map": ShipModel,
+                    "List": ShipModel.List,
+                    "url": "/api/ship/",
+                    "name": "Ship",
+                    "parseListProp": "result"
+                });
+
+                /* Components */
+                let AppViewModel = can.DefineMap.extend({
+                    alertMsg: {
+                        "type": "string",
+                        "value": "Init"
+                    }
+                });
                 let HomeViewModel = can.DefineMap.extend({
                     mapRef: "*",
                     componentInserted: function () {
@@ -363,15 +429,25 @@
                         L.marker(event.latlng).on("click", function () {
                             self.endPointClicked.call(self, event);
                         }).addTo(mymap);
+                        this.ship.waypoints.push(new WayPointModel({
+                            lat: event.latlng.lat,
+                            lng: event.latlng.lng
+                        }));
                         this.action = "waypoint";
                         console.log("end point added");
                     },
                     handleAddingWaypoint: function (event) {
                         L.marker(event.latlng).addTo(mymap);
+                        // Add this as the last but one point. The end point is added already
+                        this.ship.waypoints.splice(this.ship.waypoints.length - 1, 1, new WayPointModel({
+                            lat: event.latlng.lat,
+                            lng: event.latlng.lng
+                        }));
                         console.log("way point added");
                     },
                     endPointClicked: function (event) {
-                        this.action = ""; // complete way point
+                        this.action = ""; // complete adding way points
+                        this.ship.save().catch(handleErrors);
                     },
                     onMapClick: function (event) {
                         if (this.leftNavSelectedIndex === 1) {
@@ -409,6 +485,14 @@
                     action: {
                         value: ""
                     }, // endpoint, waypoint
+                    ship: {
+                        Type: ShipModel,
+                        Value: ShipModel
+                    },
+                    alertMsg: {
+                        "type": "string",
+                        "value": null
+                    },
                     hideShipInfo: function () {
                         this.shipInfoPos = {
                             top: -999,
@@ -421,6 +505,37 @@
                     },
                     addWayPoint: function () {
                         this.action = "endpoint";
+                    },
+                    saveShip: function () {
+                        const self = this;
+                        this.ship.save().then(function () {
+                            self.alertMsg = "Saved ship successfully";
+                        }).catch(handleErrors);
+                    }
+                });
+
+                can.Component.extend({
+                    tag: "bb-alert",
+                    view: can.stache.from("alert-template"),
+                    viewModel: {
+                        alertMsg: {
+                            "type": "string",
+                            "value": null
+                        },
+                        showAlert: {
+                            value: function () {
+                                return this.alertMsg && this.alertMsg.length > 0;
+                            }
+                        }
+                    },
+                    "events": {
+                        "{viewModel} alertMsg": function () {
+                            const self = this;
+                            self.viewModel.showAlert = true;
+                            window.setTimeout(function () {
+                                self.viewModel.showAlert = false;
+                            }, 2000);
+                        }
                     }
                 });
 
@@ -463,6 +578,10 @@
                     mymap.scrollWheelZoom.enable();
                     mymap.boxZoom.enable();
                     mymap.keyboard.enable();
+                }
+
+                function handleErrors() {
+
                 }
 
                 var template = can.stache.from("app-template");
