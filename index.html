@@ -247,7 +247,7 @@
         {{/if}}
     </script>
     <script id="home-template" type="text/stache">
-        <bb-alert {alert-msg}="alertMsg" {(show-alert)}="alertMsgVisible"></bb-alert>
+        <bb-alert {(alert-msg)}="alertMsg" {(show-alert)}="alertMsgVisible"></bb-alert>
         <!-- Ideally should be in app template level -->
         <header id="top-header">
             <button class="btn-sm" style="margin-right: 1rem;">OPEN</button>
@@ -383,7 +383,8 @@
                             "Map": WayPointModel
                         }),
                         "value": []
-                    }
+                    },
+                    ScenarioComplete: "boolean"
                 });
                 ShipModel.List = can.DefineList.extend({
                     "Map": ShipModel
@@ -464,15 +465,24 @@
                     handleAddingWaypoint: function (event) {
                         L.marker(event.latlng).addTo(mymap);
                         // Add this as the last but one point. The end point is added already
-                        this.ship.waypoints.splice(this.ship.waypoints.length - 1, 1, new WayPointModel({
+                        this.ship.waypoints.splice(this.ship.waypoints.length - 1, 0, new WayPointModel({
                             lat: event.latlng.lat,
                             lng: event.latlng.lng
                         }));
+                        this.ship.save().catch(handleErrors);
                         console.log("way point added");
                     },
                     endPointClicked: function (event) {
                         this.action = ""; // complete adding way points
                         this.ship.save().catch(handleErrors);
+                        var latlngs = [[this.ship.lat, this.ship.lng]].concat(this.ship.waypoints.get().map(p => [
+                            p.lat, p.lng
+                        ]));
+                        var polyline = L.polyline(latlngs, {
+                            color: 'red',
+                            dashArray: "5,5",
+                            weight: 1
+                        }).addTo(mymap);
                     },
                     shipClicked: function (event) {
                         const self = this;
@@ -562,22 +572,42 @@
                     viewModel: {
                         alertMsg: {
                             "type": "string",
-                            "value": null
+                            "value": null,
+                            "set": function (newMsg) {
+                                const self = this;
+                                if (newMsg && newMsg.length > 0) {
+                                    self.showAlert = true;
+                                    window.setTimeout(function () {
+                                        self.showAlert = false;
+                                        self.alertMsg = null;
+                                    }, 2000);
+                                }
+                                return newMsg;
+                            }
                         },
                         showAlert: {
                             "type": "boolean",
                             "value": function () {
                                 return this.alertMsg && this.alertMsg.length > 0;
+                            },
+                            "set": function (newVal) {
+                                // if (!newVal) {
+                                //     self.alertMsg = null;
+                                // }
+                                return newVal;
                             }
                         }
                     },
                     "events": {
                         "{viewModel} alertMsg": function (viewModel, event, newMsg, oldMsg) {
                             const self = this;
-                            self.viewModel.showAlert = true;
-                            window.setTimeout(function () {
-                                self.viewModel.showAlert = false;
-                            }, 2000);
+                            if (newMsg && newMsg.length > 0) {
+                                self.viewModel.showAlert = true;
+                                window.setTimeout(function () {
+                                    self.viewModel.showAlert = false;
+                                    self.viewModel.alertMsg = null;
+                                }, 2000);
+                            }
                         }
                     }
                 });
