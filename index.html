@@ -247,7 +247,7 @@
         {{/if}}
     </script>
     <script id="home-template" type="text/stache">
-        <bb-alert {alert-msg}="alertMsg"></bb-alert>
+        <bb-alert {alert-msg}="alertMsg" {(show-alert)}="alertMsgVisible"></bb-alert>
         <!-- Ideally should be in app template level -->
         <header id="top-header">
             <button class="btn-sm" style="margin-right: 1rem;">OPEN</button>
@@ -311,17 +311,17 @@
                 </div>
                 <div class="panel-body">
                     <p>
-                        <span id="ship-lat">27.6747</span>;<span id="ship-lng">89.7464</span>
+                        <span>{{{coordinateFormatter(ship.lat, true)}}}</span> ; <span>{{{coordinateFormatter(ship.lng, false)}}}</span>
                     </p>
                     <div class="form-group">
                         <label for="ship-name">SHIP NAME</label>
-                        <input type="text" class="form-control" id="ship-name" placeholder="Enter ship name here">
+                        <input type="text" class="form-control" id="ship-name" placeholder="Enter ship name here" {($value)}="ship.name">
                     </div>
                     <div class="form-group col-sm-6">
                         <div class="col-sm-11">
                             <label for="ship-course">COURSE</label>
                             <div style="display: flex;">
-                                <input type="text" class="form-control" id="ship-course" placeholder="Ship course" style="flex: 1;">
+                                <input type="text" class="form-control" id="ship-course" placeholder="Ship course" style="flex: 1;" {($value)}="ship.course">
                                 <span style="margin-left: 0.5rem; line-height: 2.5rem; vertical-align: middle;"> <sup>o</sup>Degree</span>
                             </div>
                         </div>
@@ -330,7 +330,7 @@
                         <div class="col-sm-11">
                             <label for="ship-speed">SPEED</label>
                             <div style="display: flex;">
-                                <input type="text" class="form-control" id="ship-speed" placeholder="Ship speed" style="flex: 1;">
+                                <input type="text" class="form-control" id="ship-speed" placeholder="Ship speed" style="flex: 1;" {($value)}="ship.speed">
                                 <span style="margin-left: 0.5rem; line-height: 2.5rem; vertical-align: middle;"> Knots</span>
                             </div>
                         </div>
@@ -364,14 +364,26 @@
                     lat: "number",
                     lng: "number"
                 });
+                const DEFAULT_SPEED = 10;
                 let ShipModel = can.DefineMap.extend({
                     id: "number",
                     name: "string",
-                    course: "string",
-                    speed: "number",
-                    waypoints: can.DefineList.extend({
-                        "Map": WayPointModel
-                    })
+                    course: {
+                        "type": "number",
+                        "value": 0
+                    },
+                    speed: {
+                        "type": "number",
+                        "value": DEFAULT_SPEED
+                    },
+                    lat: "number",
+                    lng: "number",
+                    waypoints: {
+                        "Type": can.DefineList.extend({
+                            "Map": WayPointModel
+                        }),
+                        "value": []
+                    }
                 });
                 ShipModel.List = can.DefineList.extend({
                     "Map": ShipModel
@@ -381,9 +393,9 @@
                     "Map": ShipModel,
                     "List": ShipModel.List,
                     "url": "/api/ship/",
-                    "name": "Ship",
-                    "parseListProp": "result"
+                    "name": "Ship"
                 });
+                window.ShipModel = ShipModel; // TODO: To remove
 
                 /* Components */
                 let AppViewModel = can.DefineMap.extend({
@@ -418,15 +430,28 @@
                         });
                     },
                     handleAddingShip: function (event) {
+                        const self = this;
                         this.leftNavSelectedIndex = 0;
                         this.shipCueEnabled = false;
-                        L.marker(event.latlng).addTo(mymap);
-                        this.shipInfoPos.left = event.originalEvent.clientX;
-                        this.shipInfoPos.top = event.originalEvent.clientY;
+                        this.ship = new ShipModel({
+                            lat: event.latlng.lat,
+                            lng: event.latlng.lng
+                        });
+                        self.alertMsg = "Saving ship, please wait";
+                        this.ship.save().then(function (ship) {
+                            self.alertMsgVisible = false;
+                            L.marker(event.latlng, {
+                                "shipId": ship.id // save ship ID along with marker
+                            }).on("click", function (event) {
+                                self.shipClicked.call(self, event);
+                            }).addTo(mymap);
+                            self.shipInfoPos.left = event.originalEvent.clientX;
+                            self.shipInfoPos.top = event.originalEvent.clientY;
+                        }).catch(handleErrors);
                     },
                     handleAddingEndpoint: function (event) {
                         const self = this;
-                        L.marker(event.latlng).on("click", function () {
+                        L.marker(event.latlng).on("click", function (event) {
                             self.endPointClicked.call(self, event);
                         }).addTo(mymap);
                         this.ship.waypoints.push(new WayPointModel({
@@ -448,6 +473,19 @@
                     endPointClicked: function (event) {
                         this.action = ""; // complete adding way points
                         this.ship.save().catch(handleErrors);
+                    },
+                    shipClicked: function (event) {
+                        const self = this;
+                        const shipId = event.target.options.shipId;
+                        this.alertMsg = "Fetching ship info...";
+                        ShipModel.get({
+                            id: shipId
+                        }).then(function (ship) {
+                            self.alertMsgVisible = false;
+                            self.ship = ship;
+                            self.shipInfoPos.left = event.layerPoint.x;
+                            self.shipInfoPos.top = event.layerPoint.y;
+                        }).catch(handleErrors);
                     },
                     onMapClick: function (event) {
                         if (this.leftNavSelectedIndex === 1) {
@@ -493,6 +531,10 @@
                         "type": "string",
                         "value": null
                     },
+                    alertMsgVisible: {
+                        "type": "boolean",
+                        "value": false
+                    },
                     hideShipInfo: function () {
                         this.shipInfoPos = {
                             top: -999,
@@ -523,13 +565,14 @@
                             "value": null
                         },
                         showAlert: {
-                            value: function () {
+                            "type": "boolean",
+                            "value": function () {
                                 return this.alertMsg && this.alertMsg.length > 0;
                             }
                         }
                     },
                     "events": {
-                        "{viewModel} alertMsg": function () {
+                        "{viewModel} alertMsg": function (viewModel, event, newMsg, oldMsg) {
                             const self = this;
                             self.viewModel.showAlert = true;
                             window.setTimeout(function () {
@@ -559,6 +602,30 @@
                                 $("#map-container").unbind("mousemove");
                             }
                         }
+                    },
+                    "helpers": {
+                        /**
+                         * Converts decimals to degrees, minutes and seconds format
+                         * Source: https://en.wikipedia.org/wiki/Geographic_coordinate_conversion#Coordinate_format_conversion
+                         */
+                        coordinateFormatter: function (decimalDegrees, isLat) {
+                            const degrees = Math.floor(decimalDegrees);
+                            const minutes = Math.floor(60 * (decimalDegrees - degrees));
+                            const seconds = Math.round(3600 * (decimalDegrees - degrees) - (60 * minutes));
+                            let direction = "N";
+                            if (isLat) {
+                                if (decimalDegrees < 0) {
+                                    direction = "S";
+                                }
+                            } else {
+                                if (decimalDegrees < 0) {
+                                    direction = "W";
+                                } else {
+                                    direction = "E";
+                                }
+                            }
+                            return `${Math.abs(degrees)}<sup>o</sup> ${minutes}' ${seconds}" ${direction}`;
+                        }
                     }
                 });
 
@@ -580,8 +647,9 @@
                     mymap.keyboard.enable();
                 }
 
-                function handleErrors() {
-
+                function handleErrors(err) {
+                    alert("Error occurred. Check console");
+                    console.error(err);
                 }
 
                 var template = can.stache.from("app-template");
