@@ -253,21 +253,26 @@
             margin-bottom: 1rem;
         }
         
-        .hover-window .panel-footer button {
+        .hover-window button {
             font-size: 1rem;
             color: #FFF;
+            border: none;
         }
         
-        .hover-window .panel-footer button.btn-success {
+        .hover-window button.btn-success {
             background: #527E43;
         }
         
-        .hover-window .panel-footer button.btn-default {
+        .hover-window button.btn-default {
             background: #4F5052;
         }
         
         .hover-window .close span {
             color: #485357;
+        }
+        
+        .more-ship-info .message-container .form-control {
+            margin-bottom: 0;
         }
     </style>
 </head>
@@ -391,7 +396,7 @@
                 <div class="panel-footer">
                     <button class="btn-sm btn-success" ($click)="saveShip()">SAVE</button>
                     <button class="btn-sm btn-success" ($click)="wayPointBtnClick()">WAYPOINT</button>
-                    <button class="btn-sm btn-success">AIS MESSAGE</button>
+                    <button class="btn-sm btn-success" ($click)="addAisBtnClick()">AIS MESSAGE</button>
                 </div>
             </div>
         </div>
@@ -405,13 +410,13 @@
                     <div>
                         <div class="form-group col-sm-4" style="padding-right: 15px;">
                             <div class="">
-                                <label for="message_lat">Latitude</label>
+                                <label for="message_lat">LATITUDE</label>
                                 <input type="text" class="form-control" id="message_lat" placeholder="Latitude" {($value)}="currMessage.lat">
                             </div>
                         </div>
                         <div class="form-group col-sm-4" style="padding-right: 15px;">
                             <div class="">
-                                <label for="message_lng">Longitude</label>
+                                <label for="message_lng">LONGITUDE</label>
                                 <input type="text" class="form-control" id="message_lng" placeholder="Longitude" {($value)}="currMessage.lng">
                             </div>
                         </div>
@@ -497,6 +502,63 @@
                 </div>
             </div>
         </div>
+        {{#if ship.id}}
+        <div id="more-ship-info" class="hover-window" style="top: 7rem; right: 2rem;">
+            <div class="panel">
+                <div class="panel-heading">
+                    <h3 class="panel-title">SHIP #{{ship.id}}</h3>
+                </div>
+                <div class="panel-body">
+                    <h4>WAYPOINTS</h4>
+                    {{#each ship.waypoints as waypoint}}
+                    <div>
+                        <div class="form-group col-sm-4" style="padding-right: 15px;">
+                            <div class="">
+                                <label>LATITUDE</label>
+                                <input type="text" class="form-control" placeholder="Latitude" {($value)}="waypoint.lat">
+                            </div>
+                        </div>
+                        <div class="form-group col-sm-4" style="padding-right: 15px;">
+                            <div class="">
+                                <label>LONGITUDE</label>
+                                <input type="text" class="form-control" placeholder="Longitude" {($value)}="waypoint.lng">
+                            </div>
+                        </div>
+                        <div class="form-group col-sm-4 pull-right">
+                            <label>SPEED</label>
+                            <div style="display: flex">
+                                <input type="text" class="form-control" style="flex: 1" placeholder="Speed" {($value)}="waypoint.speed">
+                                <span style="margin-left: 0.5rem; line-height: 2.5rem; vertical-align: middle;"> Knots</span>
+                            </div>
+                        </div>
+                        <div class="clearfix"></div>
+                    </div>
+                    {{/else}}
+                    <p class="text-center">No waypoints found. Use the WAYPOINT button in Ship Info panel to add some</p>
+                    {{/each}}
+                    <hr />
+                    <h4>MESSAGES</h4>
+                    {{#each ship.ais_messages as message}}
+                    <div class="message-container">
+                        <div class="form-group col-sm-8" style="padding-right: 15px; padding-left: 0;">
+                            <p class="form-control-static" style="min-height: 0; padding-bottom: 0">{{message.mmsi}}</p>
+                        </div>
+                        <div class="form-group col-sm-4" style="padding-right: 15px;">
+                            <button class="btn btn-success" style="margin-right: 10px;" ($click)="editMessage(%index)"><i class="fa fa-pencil" aria-hidden="true"></i></button>
+                            <button class="btn btn-success"><i class="fa fa-minus-circle" aria-hidden="true"></i></button>
+                        </div>
+                        <div class="clearfix"></div>
+                    </div>
+                    {{/else}}
+                    <p class="text-center">No messages found. Use the AIS MESSAGE button in Ship Info panel or left navigation to add some</p>
+                    {{/each}}
+                    <div class="clearfix"></div>
+                </div>
+                <div class="panel-footer">
+                </div>
+            </div>
+        </div>
+        {{/if}}
     </script>
     <script src="https://unpkg.com/can/dist/global/can.all.js"></script>
     <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
@@ -582,6 +644,9 @@
                 let AppViewModel = can.DefineMap;
                 let HomeViewModel = can.DefineMap.extend({
                     mapRef: "*",
+                    pretty: function (s) {
+                        return JSON.stringify(s); // To Remove
+                    },
                     componentInserted: function () {
                         this.initializeMap();
                         this.subscribeToMapEvents();
@@ -905,18 +970,28 @@
                             self.alertMsg = "Saved ship successfully";
                         }).catch(handleErrors);
                     },
+                    isNewMessage: function (message) {
+                        return this.ship.ais_messages.get().filter(m => m.mmsi === message.mmsi).length ==
+                            0;
+                    },
                     saveMessage: function () {
                         const self = this;
-                        this.ship.ais_messages.push(this.currMessage);
                         this.alertMsg = `Saving AIS Message for Ship ID #${this.ship.id}`;
+                        if (self.isNewMessage(self.currMessage)) {
+                            self.ship.ais_messages.push(self.currMessage);
+                        }
                         this.ship.save().then(function (ship) {
                             self.alertMsgVisible = false;
                             self.currMessage = new AISMessageModel();
                             self.closeMessagePanel();
                         }).catch(handleErrors);
                     },
-                    discardMessage: function() {
+                    discardMessage: function () {
                         this.currMessage = new AISMessageModel();
+                    },
+                    editMessage: function (index) {
+                        this.currMessage = this.ship.ais_messages[index];
+                        this.hideMessagePanel = false;
                     }
                 });
 
