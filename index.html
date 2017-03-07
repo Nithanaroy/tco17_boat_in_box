@@ -325,7 +325,7 @@
                     <td></td>
                     <td colspan="25" style="position: relative;">
                         <div id="scrubber">
-                            <div id="progress-mark" ($mousedown)="startMarkDrag(%element, %event)"></div>
+                            <div id="progress-mark" ($mousedown)="moveScrubber(%element, %event)"></div>
                         </div>
                     </td>
                 </tr>
@@ -376,6 +376,7 @@
                 </div>
             </div>
         </div>
+        <h1>Segment {{segment}}</h1>
     </script>
     <script src="https://unpkg.com/can/dist/global/can.all.js"></script>
     <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
@@ -392,11 +393,17 @@
                 can.fixture.delay = 1000;
 
                 /* Models */
+                const DEFAULT_SPEED = 10;
                 let WayPointModel = can.DefineMap.extend({
                     lat: "number",
-                    lng: "number"
+                    lng: "number",
+                    segmentLength: "number", // distance to previous way point
+                    speed: {
+                        type: "number",
+                        value: DEFAULT_SPEED
+                    },
+                    _accumulatedSegmentLength: "number"
                 });
-                const DEFAULT_SPEED = 10;
                 let ShipModel = can.DefineMap.extend({
                     id: "number",
                     name: "string",
@@ -416,7 +423,7 @@
                         }),
                         "value": []
                     },
-                    ScenarioComplete: "boolean"
+                    scenarioComplete: "boolean"
                 });
                 ShipModel.List = can.DefineList.extend({
                     "Map": ShipModel
@@ -446,7 +453,7 @@
                     initializeMap: function () {
                         var map = L.map('map-container', {
                             zoomControl: false
-                        }).setView([17.937107, -76.221486], 6);
+                        }).setView([17.937107, -76.221486], 7);
                         L.tileLayer(
                             'https://api.mapbox.com/styles/v1/mapbox/dark-v9/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1Ijoibml0aGFuYXJveSIsImEiOiJVTlQ0bUtJIn0.xHgUVf3z6KU1IociPuP-5g', {
                                 attribution: '',
@@ -497,26 +504,36 @@
                     handleAddingWaypoint: function (event) {
                         L.marker(event.latlng).addTo(mymap);
                         // Add this as the last but one point. The end point is added already
-                        this.ship.waypoints.splice(this.ship.waypoints.length - 1, 0, new WayPointModel({
+                        let waypointIndex = this.ship.waypoints.length - 1;
+                        this.ship.waypoints.splice(waypointIndex, 0, new WayPointModel({
                             lat: event.latlng.lat,
                             lng: event.latlng.lng
                         }));
+                        this.ship.waypoints[waypointIndex].segmentLength = this.computeSegmentLength(
+                            waypointIndex - 1,
+                            waypointIndex);
                         this.ship.save().catch(handleErrors);
                         console.log("way point added");
                     },
+                    computeSegmentLength: function (fromIndex, toIndex) {
+                        let from;
+                        const to = this.ship.waypoints[toIndex];
+                        if (fromIndex === -1) {
+                            from = this.ship; // ship has the starting co-ordinates
+                        } else {
+                            from = this.ship.waypoints[fromIndex];
+                        }
+                        return distanceBetweenCoords(from.lat, to.lat, from.lng, to.lng);
+                    },
                     endPointClicked: function (event) {
-                        this.action = ""; // complete adding way points
-                        this.ship.save().catch(handleErrors);
-                        var latlngs = [
-                            [this.ship.lat, this.ship.lng]
-                        ].concat(this.ship.waypoints.get().map(p => [
-                            p.lat, p.lng
-                        ]));
-                        var polyline = L.polyline(latlngs, {
-                            color: 'red',
-                            dashArray: "5,5",
-                            weight: 1
-                        }).addTo(mymap);
+                        const self = this;
+                        const endPointIndex = this.ship.waypoints.length - 1;
+                        let segmentLength = this.computeSegmentLength(endPointIndex - 1, endPointIndex);
+                        this.ship.waypoints[endPointIndex].segmentLength = segmentLength;
+                        this.ship.save().then(function (ship) {
+                            self.plotRoute();
+                        }).catch(handleErrors);
+                        this.action = ""; // completed adding way points
                     },
                     shipClicked: function (event) {
                         const self = this;
@@ -540,16 +557,50 @@
                             this.handleAddingEndpoint(event);
                         }
                     },
-                    startMarkDrag: function (el, downEvent) {
+                    moveShip: function (percentDayComplete) {
+                        const KNOTS_TO_KM = 1.852;
+                        let timeTravelled = percentDayComplete * 24 / 100;
+                        let shipSpeed = 10 * KNOTS_TO_KM;
+                        let distanceTravelled = shipSpeed * timeTravelled;
+                        let totalLength = 0,
+                            i = 0;
+                        for (; i < this.ship.waypoints.length; i++) {
+                            totalLength += this.ship.waypoints[i].segmentLength;
+                            if (distanceTravelled < totalLength) {
+                                break;
+                            }
+                        }
+                        this.segment = i;
+                    },
+                    plotRoute: function () {
+                        const latlngs = [
+                            [this.ship.lat, this.ship.lng]
+                        ].concat(this.ship.waypoints.get().map(p => [
+                            p.lat, p.lng
+                        ]));
+                        L.polyline(latlngs, {
+                            color: 'red',
+                            dashArray: "5,5",
+                            weight: 1
+                        }).addTo(mymap);
+                    },
+                    segment: {
+                        value: -1
+                    },
+                    moveScrubber: function (el, downEvent) {
                         const self = this;
                         let maxDragDistance = el.parentElement.clientWidth;
                         let dragStartXAt = downEvent.clientX;
                         let prevMarkPos = self.scrubberMarkPos;
+                        // Thanks to http://stackoverflow.com/a/8933562/1585523 for the idea
                         document.body.onmousemove = function (moveEvent) {
                             let dragAmount = ((moveEvent.clientX - dragStartXAt) / maxDragDistance *
                                 100) + prevMarkPos;
                             if (dragAmount >= 0 && dragAmount <= 100) {
                                 el.style.left = dragAmount + "%";
+                                debounce(function () {
+                                    self.moveShip(dragAmount);
+                                }, 10)();
                             }
                         }
                         document.body.onmouseup = function () {
@@ -745,6 +796,44 @@
                 function handleErrors(err) {
                     alert("Error occurred. Check console");
                     console.error(err);
+                }
+
+                // Pasted from: https://davidwalsh.name/javascript-debounce-function
+                // Returns a function, that, as long as it continues to be invoked, will not
+                // be triggered. The function will be called after it stops being called for
+                // N milliseconds. If `immediate` is passed, trigger the function on the
+                // leading edge, instead of the trailing.
+                function debounce(func, wait, immediate) {
+                    var timeout;
+                    return function () {
+                        var context = this,
+                            args = arguments;
+                        var later = function () {
+                            timeout = null;
+                            if (!immediate) func.apply(context, args);
+                        };
+                        var callNow = immediate && !timeout;
+                        clearTimeout(timeout);
+                        timeout = setTimeout(later, wait);
+                        if (callNow) func.apply(context, args);
+                    };
+                };
+
+                /* return KM distance between two co-ordinates */
+                function distanceBetweenCoords(lat1, lat2, lon1, lon2) {
+                    // Pasted from http://www.movable-type.co.uk/scripts/latlong.html
+                    const R = 6371e3; // metres
+                    const lat1Radians = lat1 * (Math.PI / 180);
+                    const lat2Radians = lat2 * (Math.PI / 180);
+                    const latDiff = (lat2 - lat1) * (Math.PI / 180);
+                    const lngDiff = (lon2 - lon1) * (Math.PI / 180);
+
+                    const a = Math.sin(latDiff / 2) * Math.sin(latDiff / 2) + Math.cos(lat1Radians) * Math.cos(
+                            lat2Radians) * Math.sin(lngDiff / 2) * Math
+                        .sin(lngDiff / 2);
+                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+                    return R * c / 1000;
                 }
 
                 var template = can.stache.from("app-template");
