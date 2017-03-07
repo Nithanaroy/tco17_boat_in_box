@@ -197,40 +197,50 @@
             pointer-events: none;
         }
         
-        #ship-info {
+        .hover-window {
             position: absolute;
             width: 35rem;
             /* highest of all */
             z-index: 405;
             color: #C8C8C8;
             font-size: 10px;
+            box-shadow: 0 0 10px #000;
         }
         
-        #ship-info .col-sm-6,
-        #ship-info .col-sm-11 {
+        .hover-window .col-sm-6,
+        .hover-window .col-sm-4,
+        .hover-window .col-sm-11 {
             padding: 0;
         }
         
-        #ship-info .panel-heading {
+        .hover-window .panel-heading {
             border-bottom: 1px solid #2F3437;
         }
         
-        #ship-info .panel,
-        #ship-info .panel-footer {
+        .hover-window .panel {
+            margin-bottom: 0;
+        }
+        
+        .hover-window .panel,
+        .hover-window .panel-footer {
             background: #202123;
         }
         
-        #ship-info .panel-title {
+        .hover-window .panel-title {
             font-size: 2rem;
             margin: 1rem 0;
             font-weight: normal;
         }
         
-        #ship-info label {
+        .hover-window hr {
+            border-top: 1px solid #2F3437;
+        }
+        
+        .hover-window label {
             font-weight: normal;
         }
         
-        #ship-info .form-control {
+        .hover-window .form-control {
             background: #2C2D30;
             color: #6F7072;
             border: none;
@@ -238,17 +248,25 @@
             height: 2.5rem;
         }
         
-        #ship-info .panel-footer {
+        .hover-window .panel-footer {
             border-top: 1px solid #2F3437;
             margin-bottom: 1rem;
         }
         
-        #ship-info .panel-footer button {
-            background: #527E43;
+        .hover-window .panel-footer button {
             font-size: 1rem;
+            color: #FFF;
         }
         
-        #ship-info .close span {
+        .hover-window .panel-footer button.btn-success {
+            background: #527E43;
+        }
+        
+        .hover-window .panel-footer button.btn-default {
+            background: #4F5052;
+        }
+        
+        .hover-window .close span {
             color: #485357;
         }
     </style>
@@ -283,7 +301,7 @@
                 <li title="Add Ship" ($click)="addShipBtnClick()" class="{{#eq leftNavSelectedIndex 1}}selected{{/eq}}">
                     <i class="fa fa-ship" aria-hidden="true"></i>
                 </li>
-                <li title="Add AIS" class="{{#eq leftNavSelectedIndex 2}}selected{{/eq}}">
+                <li title="Add AIS" ($click)="addAisBtnClick()" class="{{#eq leftNavSelectedIndex 2}}selected{{/eq}}">
                     <i class="fa fa-envelope" aria-hidden="true"></i>
                 </li>
                 <li title="Remove this tool" class="{{#eq leftNavSelectedIndex 3}}selected{{/eq}}">
@@ -336,7 +354,7 @@
         <div id="shipVisualCue" {{#if shipCueEnabled}}style="display: block;"{{/if}}>
             <i class="fa fa-ship" aria-hidden="true"></i>
         </div>
-        <div id="ship-info" style="top: {{shipInfoPos.top}}px; left: {{shipInfoPos.left}}px;">
+        <div id="ship-info" class="hover-window" style="top: {{shipInfoPos.top}}px; left: {{shipInfoPos.left}}px;">
             <div class="panel">
                 <div class="panel-heading">
                     <button type="button" class="close" aria-label="Close" ($click)="hideShipInfo()"><span aria-hidden="true">&times;</span></button>
@@ -377,6 +395,108 @@
                 </div>
             </div>
         </div>
+        <div id="ais_message" class="hover-window" style="top: 7rem; left: 14rem; {{#if hideMessagePanel}}display:none;{{/if}}">
+            <div class="panel">
+                <div class="panel-heading">
+                    <button type="button" class="close" aria-label="Close" ($click)="closeMessagePanel()"><span aria-hidden="true">&times;</span></button>
+                    <h3 class="panel-title">AIS MESSAGE</h3>
+                </div>
+                <div class="panel-body">
+                    <div>
+                        <div class="form-group col-sm-4" style="padding-right: 15px;">
+                            <div class="">
+                                <label for="message_lat">Latitude</label>
+                                <input type="text" class="form-control" id="message_lat" placeholder="Latitude" {($value)}="currMessage.lat">
+                            </div>
+                        </div>
+                        <div class="form-group col-sm-4" style="padding-right: 15px;">
+                            <div class="">
+                                <label for="message_lng">Longitude</label>
+                                <input type="text" class="form-control" id="message_lng" placeholder="Longitude" {($value)}="currMessage.lng">
+                            </div>
+                        </div>
+                        <div class="form-group col-sm-4 pull-right">
+                            <label for="message_time">Time</label>
+                            <div style="display: flex">
+                                <input type="text" class="form-control" style="flex: 1" id="message_time" placeholder="Occured at" {($value)}="currMessage.time">
+                                <span style="margin-left: 0.5rem; line-height: 2.5rem; vertical-align: middle;"> EST</span>
+                            </div>
+                        </div>
+                        <div class="clearfix"></div>
+                    </div>
+                    <hr style="margin-top: 0;" />
+                    <div class="form-group">
+                        <label>SHIP NAME</label>
+                        <p class="form-control-static" style="min-height: 0; padding-top: 0; padding-bottom: 0;">{{ship.name}}</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="message_id">MMSI / ID NUMBER</label>
+                        <input type="text" class="form-control" id="message_id" placeholder="Enter MMSI number" {($value)}="currMessage.mmsi">
+                    </div>
+                    <div class="form-group">
+                        <label for="message_channel">CHANNEL</label>
+                        <input type="text" class="form-control" id="message_channel" placeholder="Enter Message Channel" {($value)}="currMessage.channel">
+                    </div>
+                    <hr />
+                    <div class="form-group col-sm-6">
+                        <div class="col-sm-11">
+                            <label for="message_nav">NAVIGATIONAL STATUS</label>
+                            <input type="text" class="form-control" id="message_nav" placeholder="Enter Navigational Status" {($value)}="currMessage.navigational_status">
+                        </div>
+                    </div>
+                    <div class="form-group col-sm-6">
+                        <div class="col-sm-11">
+                            <label for="message_acc">POSITION ACCURACY</label>
+                            <input type="text" class="form-control" id="message_acc" placeholder="Enter Position Accuracy" {($value)}="currMessage.accuracy">
+                        </div>
+                    </div>
+                    <div class="clearfix"></div>
+                    <div class="form-group col-sm-6">
+                        <div class="col-sm-11">
+                            <label for="message_sog">SOG</label>
+                            <div style="display: flex;">
+                                <input type="text" class="form-control" id="message_sog" placeholder="Enter SOG" {($value)}="currMessage.sog">
+                                <span style="margin-left: 0.5rem; line-height: 2.5rem; vertical-align: middle;"> Knots</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group col-sm-6">
+                        <div class="col-sm-11">
+                            <label for="message_rot">RATE OF TURN</label>
+                            <div style="display: flex;">
+                                <input type="text" class="form-control" id="message_rot" placeholder="Enter ROT" {($value)}="currMessage.rate_of_turn">
+                                <span style="margin-left: 0.5rem; line-height: 2.5rem; vertical-align: middle;"> <sup>o</sup>Degree/min</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="clearfix"></div>
+                    <div class="form-group col-sm-6">
+                        <div class="col-sm-11">
+                            <label for="message_cog">COG</label>
+                            <div style="display: flex;">
+                                <input type="text" class="form-control" id="message_cog" placeholder="Enter COG" {($value)}="currMessage.cog">
+                                <span style="margin-left: 0.5rem; line-height: 2.5rem; vertical-align: middle;"> <sup>o</sup>Degree</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group col-sm-6">
+                        <div class="col-sm-11">
+                            <label for="message_true_heading">TRUE HEADING</label>
+                            <div style="display: flex;">
+                                <input type="text" class="form-control" id="message_true_heading" placeholder="Enter True Heading" {($value)}="currMessage.true_heading">
+                                <span style="margin-left: 0.5rem; line-height: 2.5rem; vertical-align: middle;"> <sup>o</sup>Degree</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="panel-footer">
+                    <button class="btn-sm btn-default" ($click)="discardMessage()">DISCARD</button>
+                    <button class="btn-sm btn-success pull-right" ($click)="saveMessage()">SAVE</button>
+                    <div class="clearfix"></div>
+                </div>
+            </div>
+        </div>
     </script>
     <script src="https://unpkg.com/can/dist/global/can.all.js"></script>
     <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
@@ -406,6 +526,19 @@
                         value: DEFAULT_SPEED
                     }
                 });
+                let AISMessageModel = can.DefineMap.extend({
+                    lat: "number",
+                    lng: "number",
+                    time: "string",
+                    mmsi: "number",
+                    channel: "string",
+                    navigational_status: "number",
+                    accuracy: "number",
+                    sog: "number",
+                    rate_of_turn: "number",
+                    cog: "number",
+                    true_heading: "number"
+                });
                 let ShipModel = can.DefineMap.extend({
                     id: "number",
                     name: "string",
@@ -422,6 +555,12 @@
                     waypoints: {
                         "Type": can.DefineList.extend({
                             "Map": WayPointModel
+                        }),
+                        "value": []
+                    },
+                    ais_messages: {
+                        "Type": can.DefineList.extend({
+                            "Map": AISMessageModel
                         }),
                         "value": []
                     },
@@ -562,7 +701,7 @@
                             self.shipInfoPos.top = event.originalEvent.clientY;
                         }).catch(handleErrors);
                     },
-                    cleanUp: function (event) {
+                    cleanUp: function (event, deselectShip = true) {
                         this.hideShipMarker();
 
                         // remove ship scenario
@@ -571,8 +710,11 @@
                         }
 
                         // reset selected ship
-                        this.ship = null;
+                        if (deselectShip) {
+                            this.ship = null;
+                        }
 
+                        this.hideShipInfo();
                         this.resetScrubber();
                     },
                     hideShipMarker: function () {
@@ -698,9 +840,16 @@
                             left: -999
                         }
                     },
+                    hideMessagePanel: {
+                        value: true
+                    },
                     ship: {
                         Type: ShipModel,
                         Value: ShipModel
+                    },
+                    currMessage: {
+                        Type: AISMessageModel,
+                        Value: AISMessageModel
                     },
                     totalShips: {
                         type: "number",
@@ -734,6 +883,18 @@
                         this.leftNavSelectedIndex = 1;
                         this.shipCueEnabled = true;
                     },
+                    addAisBtnClick: function addAisBtnClick(event) {
+                        if (this.ship == null || typeof this.ship.id === "undefined") {
+                            this.alertMsg = "Select a ship to add a message";
+                            return;
+                        }
+
+                        this.cleanUp(event, false);
+                        this.hideMessagePanel = false;
+                    },
+                    closeMessagePanel: function () {
+                        this.hideMessagePanel = true;
+                    },
                     wayPointBtnClick: function () {
                         this.ship.action = "endpoint";
                         this.hideShipInfo();
@@ -743,6 +904,19 @@
                         this.ship.save().then(function () {
                             self.alertMsg = "Saved ship successfully";
                         }).catch(handleErrors);
+                    },
+                    saveMessage: function () {
+                        const self = this;
+                        this.ship.ais_messages.push(this.currMessage);
+                        this.alertMsg = `Saving AIS Message for Ship ID #${this.ship.id}`;
+                        this.ship.save().then(function (ship) {
+                            self.alertMsgVisible = false;
+                            self.currMessage = new AISMessageModel();
+                            self.closeMessagePanel();
+                        }).catch(handleErrors);
+                    },
+                    discardMessage: function() {
+                        this.currMessage = new AISMessageModel();
                     }
                 });
 
