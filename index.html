@@ -376,7 +376,6 @@
                 </div>
             </div>
         </div>
-        <h1>Segment {{segment}}</h1>
     </script>
     <script src="https://unpkg.com/can/dist/global/can.all.js"></script>
     <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
@@ -386,6 +385,7 @@
             <script src="https://unpkg.com/leaflet@1.0.3/dist/leaflet.js"></script>
             <script>
                 let mymap = null; // global reference to leaflet map
+                let shipMarker = null; // global reference to ship marker to animate on map
 
                 /* Fixtures */
                 let shipsStore = can.fixture.store([]);
@@ -394,6 +394,7 @@
 
                 /* Models */
                 const DEFAULT_SPEED = 10;
+                const KNOTS_TO_KM = 1.852;
                 let WayPointModel = can.DefineMap.extend({
                     lat: "number",
                     lng: "number",
@@ -401,8 +402,7 @@
                     speed: {
                         type: "number",
                         value: DEFAULT_SPEED
-                    },
-                    _accumulatedSegmentLength: "number"
+                    }
                 });
                 let ShipModel = can.DefineMap.extend({
                     id: "number",
@@ -462,6 +462,12 @@
                             }).addTo(map);
                         this.mapRef = map;
                         mymap = map;
+                        shipMarker = L.marker({
+                            lat: 0,
+                            lng: 0
+                        }, {
+                            opacity: 0
+                        }).addTo(map);
                     },
                     subscribeToMapEvents: function () {
                         const self = this;
@@ -558,7 +564,6 @@
                         }
                     },
                     moveShip: function (percentDayComplete) {
-                        const KNOTS_TO_KM = 1.852;
                         let timeTravelled = percentDayComplete * 24 / 100;
                         let shipSpeed = 10 * KNOTS_TO_KM;
                         let distanceTravelled = shipSpeed * timeTravelled;
@@ -570,7 +575,22 @@
                                 break;
                             }
                         }
-                        this.segment = i;
+                        let nearestSegmentAccLength = totalLength - this.ship.waypoints[i].segmentLength;
+                        let distanceTravelledOnLastSegment = distanceTravelled - nearestSegmentAccLength;
+                        let p1 = this.ship.waypoints[i - 1] || this.ship;
+                        let p2 = this.ship.waypoints[i];
+                        let segmentSlope = (p2.lat - p1.lat) / (p2.lng - p1.lng);
+                        let angle = Math.atan(segmentSlope);
+                        // let shipx = (distanceTravelledOnLastSegment * Math.cos(angle)) / (111.111 * Math.cos(
+                        //     p1.lat * Math.PI / 180)) + p1.lng;
+                        let shipx = (distanceTravelledOnLastSegment * Math.cos(angle)) / 111.111 + p1.lng;
+                        let shipy = distanceTravelledOnLastSegment * Math.sin(angle) / 111.111 + p1.lat;
+                        shipMarker.setLatLng({
+                            lat: shipy,
+                            lng: shipx
+                        }).setOpacity(1);
+                        // this.segment =
+                        //     `(${shipy}, ${shipx}) ${i}. (${p1.lat}, ${p1.lng}) ${angle} deg ${distanceTravelledOnLastSegment}KM`;
                     },
                     plotRoute: function () {
                         const latlngs = [
@@ -585,7 +605,7 @@
                         }).addTo(mymap);
                     },
                     segment: {
-                        value: -1
+                        value: "Start dragging" // TODO: remove this property
                     },
                     moveScrubber: function (el, downEvent) {
                         const self = this;
@@ -633,8 +653,8 @@
                         }
                     },
                     action: {
-                        value: ""
-                    }, // endpoint, waypoint
+                        value: "" // possible values - endpoint, waypoint
+                    },
                     ship: {
                         Type: ShipModel,
                         Value: ShipModel
