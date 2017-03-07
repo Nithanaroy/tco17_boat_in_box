@@ -161,6 +161,7 @@
             position: absolute;
             /* Start scrubber from 1/2 of first cell, i.e. 0.5 / 25 * 100% = 2% */
             left: 2%;
+            cursor: move;
         }
         
         #timeline #progress-mark {
@@ -279,7 +280,7 @@
         </header>
         <div id="left-nav">
             <ul>
-                <li title="Add Ship" ($click)="addShip()" class="{{#eq leftNavSelectedIndex 1}}selected{{/eq}}">
+                <li title="Add Ship" ($click)="addShipBtnClick()" class="{{#eq leftNavSelectedIndex 1}}selected{{/eq}}">
                     <i class="fa fa-ship" aria-hidden="true"></i>
                 </li>
                 <li title="Add AIS" class="{{#eq leftNavSelectedIndex 2}}selected{{/eq}}">
@@ -371,7 +372,7 @@
                 </div>
                 <div class="panel-footer">
                     <button class="btn-sm btn-success" ($click)="saveShip()">SAVE</button>
-                    <button class="btn-sm btn-success" ($click)="addWayPoint()">WAYPOINT</button>
+                    <button class="btn-sm btn-success" ($click)="wayPointBtnClick()">WAYPOINT</button>
                     <button class="btn-sm btn-success">AIS MESSAGE</button>
                 </div>
             </div>
@@ -386,6 +387,7 @@
             <script>
                 let mymap = null; // global reference to leaflet map
                 let shipMarker = null; // global reference to ship marker to animate on map
+                let mapDrawings = [];
 
                 /* Fixtures */
                 let shipsStore = can.fixture.store([]);
@@ -423,7 +425,7 @@
                         }),
                         "value": []
                     },
-                    scenarioComplete: "boolean"
+                    action: "string" // empty string, waypoint, endpoint
                 });
                 ShipModel.List = can.DefineList.extend({
                     "Map": ShipModel
@@ -438,12 +440,7 @@
                 window.ShipModel = ShipModel; // TODO: To remove
 
                 /* Components */
-                let AppViewModel = can.DefineMap.extend({
-                    alertMsg: {
-                        "type": "string",
-                        "value": "Init"
-                    }
-                });
+                let AppViewModel = can.DefineMap;
                 let HomeViewModel = can.DefineMap.extend({
                     mapRef: "*",
                     componentInserted: function () {
@@ -497,18 +494,18 @@
                     },
                     handleAddingEndpoint: function (event) {
                         const self = this;
-                        L.marker(event.latlng).on("click", function (event) {
+                        mapDrawings.push(L.marker(event.latlng).on("click", function (event) {
                             self.endPointClicked.call(self, event);
-                        }).addTo(mymap);
+                        }).addTo(mymap));
                         this.ship.waypoints.push(new WayPointModel({
                             lat: event.latlng.lat,
                             lng: event.latlng.lng
                         }));
-                        this.action = "waypoint";
+                        this.ship.action = "waypoint";
                         console.log("end point added");
                     },
                     handleAddingWaypoint: function (event) {
-                        L.marker(event.latlng).addTo(mymap);
+                        mapDrawings.push(L.marker(event.latlng).addTo(mymap));
                         // Add this as the last but one point. The end point is added already
                         let waypointIndex = this.ship.waypoints.length - 1;
                         this.ship.waypoints.splice(waypointIndex, 0, new WayPointModel({
@@ -536,10 +533,20 @@
                         const endPointIndex = this.ship.waypoints.length - 1;
                         let segmentLength = this.computeSegmentLength(endPointIndex - 1, endPointIndex);
                         this.ship.waypoints[endPointIndex].segmentLength = segmentLength;
+                        this.ship.action = "complete"; // completed adding way points
+                        this.alertMsg = "Saving scenario"
                         this.ship.save().then(function (ship) {
+                            self.alertMsgVisible = false;
                             self.plotRoute();
                         }).catch(handleErrors);
-                        this.action = ""; // completed adding way points
+                    },
+                    loadScenario: function () {
+                        this.hideShipMarker();
+                        this.resetScrubber();
+                        this.plotWayPoints();
+                        if (this.ship.action === "complete") {
+                            this.plotRoute();
+                        }
                     },
                     shipClicked: function (event) {
                         const self = this;
@@ -550,17 +557,40 @@
                         }).then(function (ship) {
                             self.alertMsgVisible = false;
                             self.ship = ship;
+                            self.loadScenario();
                             self.shipInfoPos.left = event.originalEvent.clientX;
                             self.shipInfoPos.top = event.originalEvent.clientY;
                         }).catch(handleErrors);
                     },
+                    cleanUp: function (event) {
+                        this.hideShipMarker();
+
+                        // remove ship scenario
+                        while (mapDrawings.length > 0) {
+                            mapDrawings.pop().removeFrom(mymap);
+                        }
+
+                        // reset selected ship
+                        this.ship = null;
+
+                        this.resetScrubber();
+                    },
+                    hideShipMarker: function () {
+                        shipMarker.setOpacity(0);
+                    },
+                    resetScrubber: function () {
+                        document.getElementById("progress-mark").style.left = 0;
+                        this.scrubberMarkPos = 0;
+                    },
                     onMapClick: function (event) {
                         if (this.leftNavSelectedIndex === 1) {
                             this.handleAddingShip(event);
-                        } else if (this.action === "waypoint") {
+                        } else if (this.ship && this.ship.action === "waypoint") {
                             this.handleAddingWaypoint(event);
-                        } else if (this.action === "endpoint") {
+                        } else if (this.ship && this.ship.action === "endpoint") {
                             this.handleAddingEndpoint(event);
+                        } else {
+                            this.cleanUp(event)
                         }
                     },
                     moveShip: function (percentDayComplete) {
@@ -581,6 +611,7 @@
                         let p2 = this.ship.waypoints[i];
                         let segmentSlope = (p2.lat - p1.lat) / (p2.lng - p1.lng);
                         let angle = Math.atan(segmentSlope);
+                        // Thanks to http://gis.stackexchange.com/a/2964/85044
                         // let shipx = (distanceTravelledOnLastSegment * Math.cos(angle)) / (111.111 * Math.cos(
                         //     p1.lat * Math.PI / 180)) + p1.lng;
                         let shipx = (distanceTravelledOnLastSegment * Math.cos(angle)) / 111.111 + p1.lng;
@@ -589,8 +620,6 @@
                             lat: shipy,
                             lng: shipx
                         }).setOpacity(1);
-                        // this.segment =
-                        //     `(${shipy}, ${shipx}) ${i}. (${p1.lat}, ${p1.lng}) ${angle} deg ${distanceTravelledOnLastSegment}KM`;
                     },
                     plotRoute: function () {
                         const latlngs = [
@@ -598,17 +627,34 @@
                         ].concat(this.ship.waypoints.get().map(p => [
                             p.lat, p.lng
                         ]));
-                        L.polyline(latlngs, {
+                        mapDrawings.push(L.polyline(latlngs, {
                             color: 'red',
                             dashArray: "5,5",
                             weight: 1
-                        }).addTo(mymap);
+                        }).addTo(mymap));
                     },
-                    segment: {
-                        value: "Start dragging" // TODO: remove this property
+                    plotWayPoints: function () {
+                        this.ship.waypoints.forEach(p => {
+                            mapDrawings.push(L.marker({
+                                lat: p.lat,
+                                lng: p.lng
+                            }).addTo(mymap));
+                        });
                     },
                     moveScrubber: function (el, downEvent) {
                         const self = this;
+
+                        if (self.ship == null || typeof self.ship.id === "undefined") {
+                            self.alertMsg = "Select a ship to see its journey using timeline";
+                            return;
+                        }
+
+                        if (self.ship.waypoints.length == 0) {
+                            self.alertMsg =
+                                "Add some waypoints for this ship to see its journey using timeline";
+                            return;
+                        }
+
                         let maxDragDistance = el.parentElement.clientWidth;
                         let dragStartXAt = downEvent.clientX;
                         let prevMarkPos = self.scrubberMarkPos;
@@ -620,7 +666,7 @@
                                 el.style.left = dragAmount + "%";
                                 debounce(function () {
                                     self.moveShip(dragAmount);
-                                }, 10)();
+                                }, 150)();
                             }
                         }
                         document.body.onmouseup = function () {
@@ -651,9 +697,6 @@
                             top: -999,
                             left: -999
                         }
-                    },
-                    action: {
-                        value: "" // possible values - endpoint, waypoint
                     },
                     ship: {
                         Type: ShipModel,
@@ -687,12 +730,13 @@
                             left: -999
                         };
                     },
-                    addShip: function addShip() {
+                    addShipBtnClick: function addShipBtnClick() {
                         this.leftNavSelectedIndex = 1;
                         this.shipCueEnabled = true;
                     },
-                    addWayPoint: function () {
-                        this.action = "endpoint";
+                    wayPointBtnClick: function () {
+                        this.ship.action = "endpoint";
+                        this.hideShipInfo();
                     },
                     saveShip: function () {
                         const self = this;
@@ -716,7 +760,7 @@
                                     window.setTimeout(function () {
                                         self.showAlert = false;
                                         self.alertMsg = null;
-                                    }, 2000);
+                                    }, 5000);
                                 }
                                 return newMsg;
                             }
@@ -725,12 +769,6 @@
                             "type": "boolean",
                             "value": function () {
                                 return this.alertMsg && this.alertMsg.length > 0;
-                            },
-                            "set": function (newVal) {
-                                // if (!newVal) {
-                                //     self.alertMsg = null;
-                                // }
-                                return newVal;
                             }
                         }
                     },
@@ -766,6 +804,11 @@
                                 });
                             } else {
                                 $("#map-container").unbind("mousemove");
+                            }
+                        },
+                        "{viewModel} ship": function (viewModel, event, newShip, oldShip) {
+                            if (newShip == null || typeof newShip.id === "undefined") {
+                                this.viewModel.hideShipInfo();
                             }
                         }
                     },
