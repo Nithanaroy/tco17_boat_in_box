@@ -503,7 +503,7 @@
             </div>
         </div>
         {{#if ship.id}}
-        <div id="more-ship-info" class="hover-window" style="top: 7rem; right: 2rem;">
+        <div id="more-ship-info" class="hover-window" style="top: 7rem; right: 2rem; width: 37rem;">
             <div class="panel">
                 <div class="panel-heading">
                     <h3 class="panel-title">SHIP #{{ship.id}}</h3>
@@ -514,22 +514,26 @@
                     <div>
                         <div class="form-group col-sm-4" style="padding-right: 15px;">
                             <div class="">
-                                <label>LATITUDE</label>
+                                {{#eq %index 0}}<label>LATITUDE</label>{{/eq}}
                                 <input type="text" class="form-control" placeholder="Latitude" {($value)}="waypoint.lat">
                             </div>
                         </div>
                         <div class="form-group col-sm-4" style="padding-right: 15px;">
                             <div class="">
-                                <label>LONGITUDE</label>
+                                {{#eq %index 0}}<label>LONGITUDE</label>{{/eq}}
                                 <input type="text" class="form-control" placeholder="Longitude" {($value)}="waypoint.lng">
                             </div>
                         </div>
-                        <div class="form-group col-sm-4 pull-right">
-                            <label>SPEED</label>
+                        <div class="form-group col-sm-3" style="padding-left: 0;">
+                            {{#eq %index 0}}<label>SPEED</label>{{/eq}}
                             <div style="display: flex">
                                 <input type="text" class="form-control" style="flex: 1" placeholder="Speed" {($value)}="waypoint.speed">
                                 <span style="margin-left: 0.5rem; line-height: 2.5rem; vertical-align: middle;"> Knots</span>
                             </div>
+                        </div>
+                        <div class="form-group col-sm-1" style="padding: 0; margin-bottom: 0">
+                            {{#eq %index 0}}<label>&nbsp;</label>{{/eq}}
+                            <button class="btn btn-success" ($click)="removeWayPoint(%index)"><i class="fa fa-minus-circle" aria-hidden="true"></i></button>
                         </div>
                         <div class="clearfix"></div>
                     </div>
@@ -574,7 +578,7 @@
                 /* Fixtures */
                 let shipsStore = can.fixture.store([]);
                 can.fixture("/api/ship", shipsStore);
-                can.fixture.delay = 1000;
+                can.fixture.delay = 300;
 
                 /* Models */
                 const DEFAULT_SPEED = 10;
@@ -592,7 +596,10 @@
                     lat: "number",
                     lng: "number",
                     time: "string",
-                    mmsi: "number",
+                    mmsi: {
+                        type: "number",
+                        value: (new Date()).getTime()
+                    },
                     channel: "string",
                     navigational_status: "number",
                     accuracy: "number",
@@ -971,6 +978,8 @@
                         }).catch(handleErrors);
                     },
                     isNewMessage: function (message) {
+                        // if two messages have same MMSI they are same
+                        // if there is already another message in ship with the same ID it means this is not a new Message
                         return this.ship.ais_messages.get().filter(m => m.mmsi === message.mmsi).length ==
                             0;
                     },
@@ -982,16 +991,30 @@
                         }
                         this.ship.save().then(function (ship) {
                             self.alertMsgVisible = false;
-                            self.currMessage = new AISMessageModel();
+                            self.currMessage = new AISMessageModel({
+                                mmsi: (new Date()).getTime()
+                            });
                             self.closeMessagePanel();
                         }).catch(handleErrors);
                     },
                     discardMessage: function () {
-                        this.currMessage = new AISMessageModel();
+                        this.currMessage = new AISMessageModel({
+                            mmsi: (new Date()).getTime()
+                        });
                     },
                     editMessage: function (index) {
                         this.currMessage = this.ship.ais_messages[index];
                         this.hideMessagePanel = false;
+                    },
+                    removeWayPoint: function (index) {
+                        this.ship.waypoints.splice(index, 1);
+                        this.ship.save().then(function (ship) {
+                            this.cleanUp(null, false);
+                            this.plotWayPoints();
+                            if (this.ship.action === "complete") {
+                                this.plotRoute();
+                            }
+                        }).catch(handleErrors);
                     }
                 });
 
