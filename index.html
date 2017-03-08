@@ -502,7 +502,7 @@
                 </div>
             </div>
         </div>
-        {{#if ship.id}}
+        {{^eq ship.id undefined}}
         <div id="more-ship-info" class="hover-window" style="top: 7rem; right: 2rem; width: 37rem;">
             <div class="panel">
                 <div class="panel-heading">
@@ -562,7 +562,7 @@
                 </div>
             </div>
         </div>
-        {{/if}}
+        {{/eq}}
     </script>
     <script src="https://unpkg.com/can/dist/global/can.all.js"></script>
     <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
@@ -574,6 +574,30 @@
                 let mymap = null; // global reference to leaflet map
                 let shipMarker = null; // global reference to ship marker to animate on map
                 let mapDrawings = [];
+                const startEndPointIcon = L.icon({
+                    iconUrl: './assets/start_end_points.png',
+                    iconSize: [19, 30],
+                    iconAnchor: [9.5, 30],
+                    popupAnchor: [-3, -76],
+                });
+                const wayPointIconOld = L.icon({
+                    iconUrl: './assets/waypoint.png',
+                    iconSize: [17, 13],
+                    iconAnchor: [8.5, 6.5],
+                    popupAnchor: [-3, -76],
+                });
+                const wayPointIcon = L.icon({
+                    iconUrl: './assets/waypoint-2.png',
+                    iconSize: [11, 11],
+                    iconAnchor: [5.5, 5.5],
+                    popupAnchor: [-3, -76],
+                });
+                const boatIcon = L.icon({
+                    iconUrl: './assets/boat.png',
+                    iconSize: [13, 29],
+                    iconAnchor: [6.5, 14.5],
+                    popupAnchor: [-3, -76],
+                });
 
                 /* Fixtures */
                 let shipsStore = can.fixture.store([]);
@@ -674,6 +698,7 @@
                             lat: 0,
                             lng: 0
                         }, {
+                            icon: boatIcon,
                             opacity: 0
                         }).addTo(map);
                     },
@@ -694,8 +719,10 @@
                         self.alertMsg = "Saving ship, please wait";
                         this.ship.save().then(function (ship) {
                             self.alertMsgVisible = false;
+                            self.totalShips++;
                             L.marker(event.latlng, {
-                                "shipId": ship.id // save ship ID along with marker
+                                "shipId": ship.id, // save ship ID along with marker
+                                icon: startEndPointIcon
                             }).on("click", function (event) {
                                 self.shipClicked.call(self, event);
                             }).addTo(mymap);
@@ -705,7 +732,9 @@
                     },
                     handleAddingEndpoint: function (event) {
                         const self = this;
-                        mapDrawings.push(L.marker(event.latlng).on("click", function (event) {
+                        mapDrawings.push(L.marker(event.latlng, {
+                            icon: startEndPointIcon
+                        }).on("click", function (event) {
                             self.endPointClicked.call(self, event);
                         }).addTo(mymap));
                         this.ship.waypoints.push(new WayPointModel({
@@ -716,7 +745,9 @@
                         console.log("end point added");
                     },
                     handleAddingWaypoint: function (event) {
-                        mapDrawings.push(L.marker(event.latlng).addTo(mymap));
+                        mapDrawings.push(L.marker(event.latlng, {
+                            icon: wayPointIcon
+                        }).addTo(mymap));
                         // Add this as the last but one point. The end point is added already
                         let waypointIndex = this.ship.waypoints.length - 1;
                         this.ship.waypoints.splice(waypointIndex, 0, new WayPointModel({
@@ -848,10 +879,20 @@
                         }).addTo(mymap));
                     },
                     plotWayPoints: function () {
-                        this.ship.waypoints.forEach(p => {
+                        this.ship.waypoints.slice(0, this.ship.waypoints.length - 1).forEach(p => {
                             mapDrawings.push(L.marker({
                                 lat: p.lat,
                                 lng: p.lng
+                            }, {
+                                icon: wayPointIcon
+                            }).addTo(mymap));
+                        });
+                        this.ship.waypoints.slice(this.ship.waypoints.length - 1).forEach(p => {
+                            mapDrawings.push(L.marker({
+                                lat: p.lat,
+                                lng: p.lng
+                            }, {
+                                icon: startEndPointIcon
                             }).addTo(mymap));
                         });
                     },
@@ -925,13 +966,7 @@
                     },
                     totalShips: {
                         type: "number",
-                        value: 0,
-                        get: function (lastItemSet, resolve) {
-                            // TODO: Does not update on saving new ships
-                            ShipModel.getList().then(function (ships) {
-                                resolve(ships.length);
-                            }).catch(handleErrors);
-                        }
+                        value: 0
                     },
                     scrubberMarkPos: {
                         type: "number",
