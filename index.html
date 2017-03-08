@@ -695,7 +695,7 @@
                 /* Components */
                 let AppViewModel = can.DefineMap({
                     showMain: {
-                        value: false
+                        value: true
                     }
                 });
                 let HomeViewModel = can.DefineMap.extend({
@@ -1067,12 +1067,13 @@
                         this.hideMessagePanel = false;
                     },
                     removeWayPoint: function (index) {
+                        const self = this;
                         this.ship.waypoints.splice(index, 1);
                         this.ship.save().then(function (ship) {
-                            this.cleanUp(null, false);
-                            this.plotWayPoints();
-                            if (this.ship.action === "complete") {
-                                this.plotRoute();
+                            self.cleanUp(null, false);
+                            self.plotWayPoints();
+                            if (self.ship.action === "complete") {
+                                self.plotRoute();
                             }
                         }).catch(handleErrors);
                     }
