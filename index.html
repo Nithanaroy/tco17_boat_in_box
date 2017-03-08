@@ -280,7 +280,11 @@
 <body>
     <div id="wrapper" class="container-fluid"></div>
     <script id="app-template" type="text/stache">
+        {{^if showMain}}
+        <bb-login {(show-main)}="showMain"></bb-login>
+        {{else}}
         <bb-home-page class="full-screen-page"></bb-home-page>
+        {{/if}}
     </script>
     <script id="alert-template" type="text/stache">
         {{#if showAlert}}
@@ -293,6 +297,23 @@
             </div>
         </div>
         {{/if}}
+    </script>
+    <script id="login-template" type="text/stache">
+        
+        <form style="width: 800px; margin: 100px auto;">
+            <h1 style="text-align: center">Boat in a Box Challange</h1>
+            <div class="form-group">
+                <label for="exampleInputEmail1">Email address</label>
+                <input type="email" class="form-control" id="exampleInputEmail1" placeholder="Email">
+            </div>
+            <div class="form-group">
+                <label for="exampleInputPassword1">Password</label>
+                <input type="password" class="form-control" id="exampleInputPassword1" placeholder="Password">
+            </div>
+            <button class="btn btn-default" ($click)="goToMain()">Submit</button>
+            <h4 style="text-align: center">Any credentials work!</h4>
+        </form>
+        
     </script>
     <script id="home-template" type="text/stache">
         <bb-alert {(alert-msg)}="alertMsg" {(show-alert)}="alertMsgVisible"></bb-alert>
@@ -672,7 +693,11 @@
                 window.ShipModel = ShipModel; // TODO: To remove
 
                 /* Components */
-                let AppViewModel = can.DefineMap;
+                let AppViewModel = can.DefineMap({
+                    showMain: {
+                        value: false
+                    }
+                });
                 let HomeViewModel = can.DefineMap.extend({
                     mapRef: "*",
                     pretty: function (s) {
@@ -1050,6 +1075,20 @@
                                 this.plotRoute();
                             }
                         }).catch(handleErrors);
+                    }
+                });
+
+
+                can.Component.extend({
+                    tag: "bb-login",
+                    view: can.stache.from("login-template"),
+                    viewModel: {
+                        showMain: {
+                            value: false
+                        },
+                        goToMain: function () {
+                            this.showMain = true
+                        }
                     }
                 });
 
