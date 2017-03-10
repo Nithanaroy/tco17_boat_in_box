@@ -1,0 +1,7 @@
+{{^if showMain}}
+<bb-login {(show-main)}="showMain"></bb-login>
+{{else}}
+<bb-home-page class="full-screen-page"></bb-home-page>
+{{/if}}
+
+<!--<p>This is from stache</p>-->

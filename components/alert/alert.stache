@@ -1,0 +1,7 @@
+{{#if showAlert}}
+<div id="alert-container">
+    <div class="alert alert-info" role="alert">
+        <p>{{alertMsg}}</p>
+    </div>
+</div>
+{{/if}}

@@ -1,2 +1,4 @@
 data
 *.mov
+.idea
+node_modules

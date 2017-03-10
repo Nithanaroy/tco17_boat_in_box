@@ -1,0 +1,269 @@
+<bb-alert {(alert-msg)}="alertMsg" {(show-alert)}="alertMsgVisible">
+</bb-alert>
+<!-- Ideally should be in app template level -->
+<header id="top-header">
+    <button class="btn-sm" style="margin-right: 1rem;">OPEN</button>
+    <button class="btn-sm">SAVE</button>
+</header>
+<div id="left-nav">
+    <ul>
+        <li title="Add Ship" ($click)="addShipBtnClick()" class="{{#eq leftNavSelectedIndex 1}}selected{{/eq}}">
+            <i class="fa fa-ship" aria-hidden="true"></i>
+        </li>
+        <li title="Add AIS" ($click)="addAisBtnClick()" class="{{#eq leftNavSelectedIndex 2}}selected{{/eq}}">
+            <i class="fa fa-envelope" aria-hidden="true"></i>
+        </li>
+        <li title="Remove this tool" class="{{#eq leftNavSelectedIndex 3}}selected{{/eq}}">
+            <i class="fa fa-minus-square" aria-hidden="true"></i>
+        </li>
+    </ul>
+</div>
+<div id="ship-count">
+    <table>
+        <tr>
+            <td rowspan="2" style="color: #E1D1A6; font-size: 2rem;">
+                <i class="fa fa-ship" aria-hidden="true" style="margin-right: 1rem;">
+                        </td>
+                    <td><h2>{{totalShips}}</h2></td>
+                </tr>
+                <tr>
+                    <td style="color: #383F42; font-size: 0.5rem;">Ships Total</td>
+                </tr>
+            </table>
+        </div>
+
+        <div id="map-container"></div>
+        <div id="timeline">
+            <table>
+                <tr>
+                    <td style="max-width: 165px; text-align: left; color: #AEAEAF; font-size: 1.3rem;">TIMELINE VIEW</td>
+                    {{#times}}
+                    <td>{{.}}</td>
+                    {{/times}}
+                </tr>
+                <tr>
+                    <td></td>
+                    {{#times}}
+                    <td>
+                        <div class="col-sm-6"></div>
+                    </td>
+                    {{/times}}
+                </tr>
+                <tr>
+                    <td></td>
+                    <td colspan="25" style="position: relative;">
+                        <div id="scrubber">
+                            <div id="progress-mark" ($mousedown)="moveScrubber(%element, %event)"></div>
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        
+        <div id="shipVisualCue" {{#if shipCueEnabled}}style="display: block;"{{/if}}>
+            <i class="fa fa-ship" aria-hidden="true"></i>
+</div>
+<div id="ship-info" class="hover-window" style="top: {{shipInfoPos.top}}px; left: {{shipInfoPos.left}}px;">
+    <div class="panel">
+        <div class="panel-heading">
+            <button type="button" class="close" aria-label="Close" ($click)="hideShipInfo()"><span aria-hidden="true">&times;</span></button>
+            <h3 class="panel-title">SHIP INFORMATION</h3>
+        </div>
+        <div class="panel-body">
+            <p>
+                <span>{{{coordinateFormatter(ship.lat, true)}}}</span> ; <span>{{{coordinateFormatter(ship.lng, false)}}}</span>
+            </p>
+            <div class="form-group">
+                <label for="ship-name">SHIP NAME</label>
+                <input type="text" class="form-control" id="ship-name" placeholder="Enter ship name here" {($value)}="ship.name">
+            </div>
+            <div class="form-group col-sm-6">
+                <div class="col-sm-11">
+                    <label for="ship-course">COURSE</label>
+                    <div style="display: flex;">
+                        <input type="text" class="form-control" id="ship-course" placeholder="Ship course" style="flex: 1;" {($value)}="ship.course">
+                        <span style="margin-left: 0.5rem; line-height: 2.5rem; vertical-align: middle;"> <sup>o</sup>Degree</span>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group col-sm-6">
+                <div class="col-sm-11">
+                    <label for="ship-speed">SPEED</label>
+                    <div style="display: flex;">
+                        <input type="text" class="form-control" id="ship-speed" placeholder="Ship speed" style="flex: 1;" {($value)}="ship.speed">
+                        <span style="margin-left: 0.5rem; line-height: 2.5rem; vertical-align: middle;"> Knots</span>
+                    </div>
+                </div>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+        <div class="panel-footer">
+            <button class="btn-sm btn-success" ($click)="saveShip()">SAVE</button>
+            <button class="btn-sm btn-success" ($click)="wayPointBtnClick()">WAYPOINT</button>
+            <button class="btn-sm btn-success" ($click)="addAisBtnClick()">AIS MESSAGE</button>
+        </div>
+    </div>
+</div>
+<div id="ais_message" class="hover-window" style="top: 7rem; left: 14rem; {{#if hideMessagePanel}}display:none;{{/if}}">
+    <div class="panel">
+        <div class="panel-heading">
+            <button type="button" class="close" aria-label="Close" ($click)="closeMessagePanel()"><span aria-hidden="true">&times;</span></button>
+            <h3 class="panel-title">AIS MESSAGE</h3>
+        </div>
+        <div class="panel-body">
+            <div>
+                <div class="form-group col-sm-4" style="padding-right: 15px;">
+                    <div class="">
+                        <label for="message_lat">LATITUDE</label>
+                        <input type="text" class="form-control" id="message_lat" placeholder="Latitude" {($value)}="currMessage.lat">
+                    </div>
+                </div>
+                <div class="form-group col-sm-4" style="padding-right: 15px;">
+                    <div class="">
+                        <label for="message_lng">LONGITUDE</label>
+                        <input type="text" class="form-control" id="message_lng" placeholder="Longitude" {($value)}="currMessage.lng">
+                    </div>
+                </div>
+                <div class="form-group col-sm-4 pull-right">
+                    <label for="message_time">Time</label>
+                    <div style="display: flex">
+                        <input type="text" class="form-control" style="flex: 1" id="message_time" placeholder="Occured at" {($value)}="currMessage.time">
+                        <span style="margin-left: 0.5rem; line-height: 2.5rem; vertical-align: middle;"> EST</span>
+                    </div>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            <hr style="margin-top: 0;" />
+            <div class="form-group">
+                <label>SHIP NAME</label>
+                <p class="form-control-static" style="min-height: 0; padding-top: 0; padding-bottom: 0;">{{ship.name}}</p>
+            </div>
+            <div class="form-group">
+                <label for="message_id">MMSI / ID NUMBER</label>
+                <input type="text" class="form-control" id="message_id" placeholder="Enter MMSI number" {($value)}="currMessage.mmsi">
+            </div>
+            <div class="form-group">
+                <label for="message_channel">CHANNEL</label>
+                <input type="text" class="form-control" id="message_channel" placeholder="Enter Message Channel" {($value)}="currMessage.channel">
+            </div>
+            <hr />
+            <div class="form-group col-sm-6">
+                <div class="col-sm-11">
+                    <label for="message_nav">NAVIGATIONAL STATUS</label>
+                    <input type="text" class="form-control" id="message_nav" placeholder="Enter Navigational Status" {($value)}="currMessage.navigational_status">
+                </div>
+            </div>
+            <div class="form-group col-sm-6">
+                <div class="col-sm-11">
+                    <label for="message_acc">POSITION ACCURACY</label>
+                    <input type="text" class="form-control" id="message_acc" placeholder="Enter Position Accuracy" {($value)}="currMessage.accuracy">
+                </div>
+            </div>
+            <div class="clearfix"></div>
+            <div class="form-group col-sm-6">
+                <div class="col-sm-11">
+                    <label for="message_sog">SOG</label>
+                    <div style="display: flex;">
+                        <input type="text" class="form-control" id="message_sog" placeholder="Enter SOG" {($value)}="currMessage.sog">
+                        <span style="margin-left: 0.5rem; line-height: 2.5rem; vertical-align: middle;"> Knots</span>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group col-sm-6">
+                <div class="col-sm-11">
+                    <label for="message_rot">RATE OF TURN</label>
+                    <div style="display: flex;">
+                        <input type="text" class="form-control" id="message_rot" placeholder="Enter ROT" {($value)}="currMessage.rate_of_turn">
+                        <span style="margin-left: 0.5rem; line-height: 2.5rem; vertical-align: middle;"> <sup>o</sup>Degree/min</span>
+                    </div>
+                </div>
+            </div>
+            <div class="clearfix"></div>
+            <div class="form-group col-sm-6">
+                <div class="col-sm-11">
+                    <label for="message_cog">COG</label>
+                    <div style="display: flex;">
+                        <input type="text" class="form-control" id="message_cog" placeholder="Enter COG" {($value)}="currMessage.cog">
+                        <span style="margin-left: 0.5rem; line-height: 2.5rem; vertical-align: middle;"> <sup>o</sup>Degree</span>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group col-sm-6">
+                <div class="col-sm-11">
+                    <label for="message_true_heading">TRUE HEADING</label>
+                    <div style="display: flex;">
+                        <input type="text" class="form-control" id="message_true_heading" placeholder="Enter True Heading" {($value)}="currMessage.true_heading">
+                        <span style="margin-left: 0.5rem; line-height: 2.5rem; vertical-align: middle;"> <sup>o</sup>Degree</span>
+                    </div>
+                </div>
+            </div>
+            <div class="clearfix"></div>
+        </div>
+        <div class="panel-footer">
+            <button class="btn-sm btn-default" ($click)="discardMessage()">DISCARD</button>
+            <button class="btn-sm btn-success pull-right" ($click)="saveMessage()">SAVE</button>
+            <div class="clearfix"></div>
+        </div>
+    </div>
+</div>
+{{^eq ship.id undefined}}
+<div id="more-ship-info" class="hover-window" style="top: 7rem; right: 2rem; width: 37rem;">
+    <div class="panel">
+        <div class="panel-heading">
+            <h3 class="panel-title">SHIP #{{ship.id}}</h3>
+        </div>
+        <div class="panel-body">
+            <h4>WAYPOINTS</h4>
+            {{#each ship.waypoints as waypoint}}
+            <div>
+                <div class="form-group col-sm-4" style="padding-right: 15px;">
+                    <div class="">
+                        {{#eq %index 0}}<label>LATITUDE</label>{{/eq}}
+                        <input type="text" class="form-control" placeholder="Latitude" {($value)}="waypoint.lat">
+                    </div>
+                </div>
+                <div class="form-group col-sm-4" style="padding-right: 15px;">
+                    <div class="">
+                        {{#eq %index 0}}<label>LONGITUDE</label>{{/eq}}
+                        <input type="text" class="form-control" placeholder="Longitude" {($value)}="waypoint.lng">
+                    </div>
+                </div>
+                <div class="form-group col-sm-3" style="padding-left: 0;">
+                    {{#eq %index 0}}<label>SPEED</label>{{/eq}}
+                    <div style="display: flex">
+                        <input type="text" class="form-control" style="flex: 1" placeholder="Speed" {($value)}="waypoint.speed">
+                        <span style="margin-left: 0.5rem; line-height: 2.5rem; vertical-align: middle;"> Knots</span>
+                    </div>
+                </div>
+                <div class="form-group col-sm-1" style="padding: 0; margin-bottom: 0">
+                    {{#eq %index 0}}<label>&nbsp;</label>{{/eq}}
+                    <button class="btn btn-success" ($click)="removeWayPoint(%index)"><i class="fa fa-minus-circle" aria-hidden="true"></i></button>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            {{/else}}
+            <p class="text-center">No waypoints found. Use the WAYPOINT button in Ship Info panel to add some</p>
+            {{/each}}
+            <hr />
+            <h4>MESSAGES</h4>
+            {{#each ship.ais_messages as message}}
+            <div class="message-container">
+                <div class="form-group col-sm-8" style="padding-right: 15px; padding-left: 0;">
+                    <p class="form-control-static" style="min-height: 0; padding-bottom: 0">{{message.mmsi}}</p>
+                </div>
+                <div class="form-group col-sm-4" style="padding-right: 15px;">
+                    <button class="btn btn-success" style="margin-right: 10px;" ($click)="editMessage(%index)"><i class="fa fa-pencil" aria-hidden="true"></i></button>
+                    <button class="btn btn-success"><i class="fa fa-minus-circle" aria-hidden="true"></i></button>
+                </div>
+                <div class="clearfix"></div>
+            </div>
+            {{/else}}
+            <p class="text-center">No messages found. Use the AIS MESSAGE button in Ship Info panel or left navigation to add some</p>
+            {{/each}}
+            <div class="clearfix"></div>
+        </div>
+        <div class="panel-footer">
+        </div>
+    </div>
+</div>
+{{/eq}}

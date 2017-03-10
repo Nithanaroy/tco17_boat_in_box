@@ -1,0 +1,265 @@
+body {
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+html,
+body,
+#wrapper,
+.full-screen-page {
+  height: 100%;
+}
+
+#wrapper {
+}
+
+#alert-container {
+  position: absolute;
+  top: 1rem;
+  text-align: center;
+  width: 100%;
+  /* highest of all */
+  z-index: 405;
+}
+
+#alert-container .alert {
+  display: inline-block;
+  margin-bottom: 0;
+}
+
+button {
+  background: #595A53;
+  color: #C8C8C7;
+  border: none;
+}
+
+.container-fluid {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+bb-home-page {
+  display: flex;
+  flex-direction: column;
+}
+
+#top-header {
+  background: #373833;
+  padding: 1rem 4rem;
+}
+
+#left-nav {
+  position: absolute;
+  top: 7rem;
+  left: 4rem;
+  z-index: 402;
+  /* 2 more than leaflet map */
+}
+
+#left-nav ul {
+  padding: 0;
+  box-shadow: 0 0 10px #000;
+}
+
+#left-nav li {
+  list-style: none;
+  background: #202123;
+  width: 5rem;
+  height: 5rem;
+  color: #E1D1A6;
+  text-align: center;
+  line-height: 5rem;
+  border-bottom: 1px solid #2F3437;
+}
+
+#left-nav li:last-child {
+  border-bottom: none;
+}
+
+#left-nav li:hover {
+  background: #17181A;
+  cursor: pointer;
+}
+
+#left-nav li.selected {
+  background: #17181A;
+}
+
+#ship-count {
+  position: absolute;
+  bottom: 10rem;
+  left: 4rem;
+  background: #202123;
+  padding: 1rem 0.5rem;
+  box-shadow: 0 0 10px #000;
+  border-radius: 2px;
+  z-index: 402;
+  /* 2 more than leaflet map */
+}
+
+#ship-count h2 {
+  color: #FFF;
+  margin-bottom: 0;
+  margin-top: 0;
+}
+
+#map-container {
+  background: #131313;
+  flex-grow: 1;
+}
+
+#timeline table {
+  width: 100%;
+}
+
+#timeline table tr:first-child {
+  text-align: center;
+  background: #202123;
+  font-size: 0.5rem;
+  color: #475256;
+  border-top: 1px solid #2F3436;
+  border-bottom: 1px solid #2F3436;
+}
+
+#timeline table tr:first-child td {
+  padding: 0.75rem;
+}
+
+#timeline table tr:nth-child(2) {
+  background: #17181A;
+}
+
+#timeline table tr:nth-child(2) td {
+  height: 5rem;
+}
+
+#timeline table tr:nth-child(2) td div {
+  border-right: 1px solid #1D1E20;
+  height: 100%;
+  padding: 0;
+}
+
+#timeline #scrubber {
+  /* 0 hours to 24 hours = 25 cells. We want the scrubber to start from middle of first cell to middle of last cell */
+  /* i.e. width = 24 / 25 * 100% = 96% */
+  width: 96%;
+  height: 3px;
+  background: #485357;
+  /* half of #timeline table tr:nth-child(2) height */
+  transform: translateY(-2.5rem);
+  /* detach it from its parent */
+  position: absolute;
+  /* Start scrubber from 1/2 of first cell, i.e. 0.5 / 25 * 100% = 2% */
+  left: 2%;
+  cursor: move;
+}
+
+#timeline #progress-mark {
+  position: absolute;
+  width: 1.5rem;
+  height: 1.5rem;
+  background: #E8D7AB;
+  border-radius: 1rem;
+  transform: translate(-0.75rem, -0.75rem);
+  left: 0;
+}
+
+.leaflet-tile {
+  border: solid #353737 1px;
+}
+
+.leaflet-tile td {
+  border-right: solid #353737 1px;
+  border-bottom: solid #353737 1px;
+}
+
+#shipVisualCue {
+  position: absolute;
+  font-size: 2rem;
+  border: dashed 1px #FFF;
+  background-color: rgba(20, 40, 29, 0.5);
+  padding: 1rem;
+  color: #E1D1A6;
+  display: none;
+  /* highest of all */
+  z-index: 405;
+  cursor: pointer;
+  pointer-events: none;
+}
+
+.hover-window {
+  position: absolute;
+  width: 35rem;
+  /* highest of all */
+  z-index: 405;
+  color: #C8C8C8;
+  font-size: 10px;
+  box-shadow: 0 0 10px #000;
+}
+
+.hover-window .col-sm-6,
+.hover-window .col-sm-4,
+.hover-window .col-sm-11 {
+  padding: 0;
+}
+
+.hover-window .panel-heading {
+  border-bottom: 1px solid #2F3437;
+}
+
+.hover-window .panel {
+  margin-bottom: 0;
+}
+
+.hover-window .panel,
+.hover-window .panel-footer {
+  background: #202123;
+}
+
+.hover-window .panel-title {
+  font-size: 2rem;
+  margin: 1rem 0;
+  font-weight: normal;
+}
+
+.hover-window hr {
+  border-top: 1px solid #2F3437;
+}
+
+.hover-window label {
+  font-weight: normal;
+}
+
+.hover-window .form-control {
+  background: #2C2D30;
+  color: #6F7072;
+  border: none;
+  font-size: 1rem;
+  height: 2.5rem;
+}
+
+.hover-window .panel-footer {
+  border-top: 1px solid #2F3437;
+  margin-bottom: 1rem;
+}
+
+.hover-window button {
+  font-size: 1rem;
+  color: #FFF;
+  border: none;
+}
+
+.hover-window button.btn-success {
+  background: #527E43;
+}
+
+.hover-window button.btn-default {
+  background: #4F5052;
+}
+
+.hover-window .close span {
+  color: #485357;
+}
+
+.more-ship-info .message-container .form-control {
+  margin-bottom: 0;
+}
